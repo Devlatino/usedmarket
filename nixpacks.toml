@@ -1,9 +1,10 @@
-# nixpacks.toml
+# nixpacks.toml  (root del repo)
+
 [phases.install]
-cmds = ["npm install --omit=dev"]
+cmds = ["npm install"]           # ← niente --omit=dev
 
 [phases.build]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node dist/index.js"
+cmd = "node dist/index.js"       # o dist/server/index.js se hai scelto quell’output
