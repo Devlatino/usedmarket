@@ -1,5 +1,11 @@
+# --- INSTALL ---
 [phases.install]
 cmds = ["npm install --omit=dev"]
 
+# --- BUILD ---
 [phases.build]
 cmds = ["npm run build"]
+
+# --- START ---
+[start]
+cmd = "node dist/server/index.js"   # o dist/index.js se hai usato outfile
