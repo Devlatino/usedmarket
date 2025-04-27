@@ -1,9 +1,10 @@
 /* ────────────────────────────────────────────────────────────
    server/vite.ts
-   Configura:
-   1. Vite in modalità middleware per lo sviluppo
-   2. Serving statico della SPA già buildata in produzione
-   Funziona con Node ESM (import.meta.url) e con il bundle esbuild.
+   - Vite middleware per lo sviluppo
+   - Servizio di file statici per la produzione
+   - Helper di logging
+   Funziona sia in dev (npm run dev) sia nel bundle ESM generato
+   da esbuild (npm run build → npm start).
    ──────────────────────────────────────────────────────────── */
 
    import { dirname, resolve } from "path";
@@ -11,26 +12,29 @@
    import type { Express, Request, Response } from "express";
    import { createServer as createViteServer, ViteDevServer } from "vite";
    
-   /* __dirname compatibile con ESM ------------------------------------------------
-      In un modulo ECMAScript (come dist/index.js) non esistono __dirname/__filename.
-      Li ricaviamo da import.meta.url in modo portabile. */
+   /* ──────────────────────────
+      Helper di logging semplice
+      ────────────────────────── */
+   export function log(message: string) {
+     // eslint-disable-next-line no-console
+     console.log(`[server] ${message}`);
+   }
+   
+   /* __dirname compatibile con ESM ------------------------------ */
    const __dirname = dirname(fileURLToPath(import.meta.url));
    
-   /* ╔══════════════════════════════════════════════════════════════════════╗
-      ║  1. VITE DEV SERVER (usato solo in `npm run dev`)                    ║
-      ╚══════════════════════════════════════════════════════════════════════╝ */
+   /* ╔════════════════════════════════════════════════════════╗
+      ║ 1. VITE DEV (usato da `npm run dev`)                   ║
+      ╚════════════════════════════════════════════════════════╝ */
    export async function setupVite(app: Express) {
-     // Root del progetto React (folder client)
      const vite: ViteDevServer = await createViteServer({
        root: resolve(__dirname, "..", "client"),
        server: { middlewareMode: "html" },
-       appType: "custom", // disattiva il fallback automatico di Vite
+       appType: "custom",
      });
    
-     // Integra i middleware di Vite (HMR, trasformazioni, ecc.)
      app.use(vite.middlewares);
    
-     // Qualsiasi rotta → ritorna index.html trasformato da Vite
      app.use("*", async (req: Request, res: Response) => {
        try {
          const url = req.originalUrl;
@@ -43,25 +47,26 @@
          res.status(500).end(err instanceof Error ? err.message : "error");
        }
      });
+   
+     log("Vite dev server attached");
    }
    
-   /* ╔══════════════════════════════════════════════════════════════════════╗
-      ║ 2. SERVE STATIC (usato in produzione)                               ║
-      ╚══════════════════════════════════════════════════════════════════════╝ */
+   /* ╔════════════════════════════════════════════════════════╗
+      ║ 2. SERVE STATIC (usato in produzione)                  ║
+      ╚════════════════════════════════════════════════════════╝ */
    export async function serveStatic(app: Express) {
-     // Import dinamico per caricare Express solo quando serveStatic viene invocato
+     // Import dinamico per non includere express nel bundle client
      const express = await import("express");
    
-     // Gli asset buildati da Vite finiscono in dist/public/
      const distPath  = resolve(__dirname, "public");
      const indexHtml = resolve(distPath, "index.html");
    
-     // Files statici (JS, CSS, immagini…)
      app.use("/", express.static(distPath));
    
-     // Fallback SPA (qualsiasi rotta côté client)
      app.get("*", (_req: Request, res: Response) => {
        res.sendFile(indexHtml);
      });
+   
+     log("Static files served from /public");
    }
    
