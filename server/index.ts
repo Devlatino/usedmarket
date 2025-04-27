@@ -1,14 +1,19 @@
-/* server/index.ts ---------------------------------------------------------- */
-import "dotenv/config";                     // carica subito le env
-import express from "express";
-import { setupVite, serveStatic, log } from "./vite";
-import apiRouter from "./routes.js";        // se usi routes
+/* server/index.ts ─ bootstrap backend */
 
-const app = express();
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import { setupVite, serveStatic, log } from "./vite.js";
+import apiRouter from "./routes.js";
+
+const app  = express();
 const PORT = Number(process.env.PORT) || 8080;
 
-/* API routes (facoltative) */
+app.use(cors());
 app.use("/api", apiRouter);
+
+/* health endpoint per Railway */
+app.get("/healthz", (_req, res) => res.send("ok"));
 
 (async () => {
   if (process.env.NODE_ENV !== "production") {

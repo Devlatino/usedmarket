@@ -1,15 +1,15 @@
-/* server/routes.ts --------------------------------------------------------- */
-/* Esempio router con wildcard compatibile Express 5 */
+/* server/routes.ts ─ esempio API router */
 
 import { Router } from "express";
 const router = Router();
 
-router.get("/:path*", (_req, res) => {
-  res.json({ ok: true });
+router.get("/items", (_req, res) => {
+  res.json({ items: [] });
 });
 
-router.post("/:path*", (_req, res) => {
-  res.status(201).json({ created: true });
+/* wildcard compatibile Express 5 */
+router.get("/:path*", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
 });
 
 export default router;

@@ -1,4 +1,5 @@
-/* server/utils/fs.ts ------------------------------------------------------- */
+/* server/utils/fs.ts ─ helper path */
+
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 
