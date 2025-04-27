@@ -1,88 +1,57 @@
-import express, { type Express } from "express";
-import fs from "fs";
-import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
+import path, { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { dirname } from "path";
+import type { Express, Request, Response } from "express";
+import { createServer as createViteServer, ViteDevServer } from "vite";
 
-const viteLogger = createLogger();
-const __dirname = dirname(fileURLToPath(import.meta.url)); 
+// ────────────────────────────────────────────────────────────
+// Utility: ricava __dirname in un modulo ESM
+// (import.meta.dirname non esiste in Node → undefined)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// ────────────────────────────────────────────────────────────
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true,
-  };
-
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
+/** Avvia Vite in modalità middleware per lo sviluppo */
+export async function setupVite(app: Express) {
+  const vite: ViteDevServer = await createViteServer({
+    root: path.resolve(__dirname, "..", "client"),
+    server: { middlewareMode: "html" },
     appType: "custom",
   });
 
+  // In dev Vite gestisce direttamente gli asset React
   app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
 
+  // Catch-all per le route React (SPA)
+  app.use("*", async (req: Request, res: Response) => {
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
+      const url = req.originalUrl;
+      const templatePath = resolve(
+        __dirname,
         "..",
         "client",
-        "index.html",
+        "index.html"
       );
-
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
+      let template = await vite.transformIndexHtml(url, templatePath);
+      res.status(200).set({ "Content-Type": "text/html" }).end(template);
+    } catch (err) {
+      vite.ssrFixStacktrace(err as Error);
+      console.error(err);
+      res.status(500).end(err instanceof Error ? err.message : "error");
     }
   });
 }
 
+/** Serve i file statici già buildati (modalità produzione) */
 export function serveStatic(app: Express) {
-  const __dirname = dirname(fileURLToPath(import.meta.url)); 
+  // In produzione Vite ha copiato gli asset in dist/public
+  const distPath = resolve(__dirname, "public");
+  const indexHtml = resolve(distPath, "index.html");
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
+  // Static assets (JS/CSS/img/font…)
+  app.use("/", (await import("express")).static(distPath));
 
-  app.use(express.static(distPath));
-
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Catch-all SPA fallback
+  app.get("*", (_req: Request, res: Response) => {
+    res.sendFile(indexHtml);
   });
 }
+
