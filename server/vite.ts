@@ -5,8 +5,11 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 const viteLogger = createLogger();
+const __dirname = dirname(fileURLToPath(import.meta.url)); 
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -68,7 +71,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  const __dirname = dirname(fileURLToPath(import.meta.url)); 
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
