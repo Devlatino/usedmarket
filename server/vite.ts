@@ -1,5 +1,5 @@
 /* ────────────────────────────────────────────────────────────
-   server/vite.ts – versione compatibile Express 5 + esbuild
+   server/vite.ts – compatibile Express 5 + esbuild
    ──────────────────────────────────────────────────────────── */
 
    import { dirname, resolve } from "path";
@@ -7,12 +7,12 @@
    import type { Express, Request, Response } from "express";
    import { createServer as createViteServer, ViteDevServer } from "vite";
    
-   /* Log utility */
+   /* Helper di logging */
    export function log(message: string) {
      console.log(`[server] ${message}`);
    }
    
-   /* __dirname in ESM */
+   /* __dirname portabile in ESM */
    const __dirname = dirname(fileURLToPath(import.meta.url));
    
    /* ───── 1. Vite dev middleware ───── */
@@ -25,11 +25,11 @@
    
      app.use(vite.middlewares);
    
-     // Wildcard DEV → deve iniziare con "/"
-     app.use("/(.*)", async (req: Request, res: Response) => {
-       const url = req.originalUrl;
-       const tplPath = resolve(__dirname, "..", "client", "index.html");
-       const html = await vite.transformIndexHtml(url, tplPath);
+     // Wildcard DEV → "/*"
+     app.use("/*", async (req: Request, res: Response) => {
+       const url       = req.originalUrl;
+       const tplPath   = resolve(__dirname, "..", "client", "index.html");
+       const html      = await vite.transformIndexHtml(url, tplPath);
        res.status(200).set({ "Content-Type": "text/html" }).end(html);
      });
    
@@ -38,15 +38,14 @@
    
    /* ───── 2. Static serve (prod) ───── */
    export async function serveStatic(app: Express) {
-     const express = await import("express");   // dynamic import
-   
-     const distPath  = resolve(__dirname, "public");
-     const indexHtml = resolve(distPath, "index.html");
+     const express    = await import("express");
+     const distPath   = resolve(__dirname, "public");
+     const indexHtml  = resolve(distPath, "index.html");
    
      app.use("/", express.static(distPath));
    
-     // Wildcard PROD → "/(.*)"
-     app.get("/(.*)", (_req: Request, res: Response) => {
+     // Wildcard PROD → "/*"
+     app.get("/*", (_req: Request, res: Response) => {
        res.sendFile(indexHtml);
      });
    
